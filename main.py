@@ -49,9 +49,20 @@ def health():
     return {"status": "ok"}
 
 @app.get("/tasks")
-def get_tasks():
-    """Get all tasks"""
-    return tasks
+def get_tasks(done: Optional[bool] = None, search: Optional[str] = None):
+    """Get all tasks with optional filtering by done status and title search"""
+    filtered_tasks = tasks
+    
+    # Filter by done status
+    if done is not None:
+        filtered_tasks = [task for task in filtered_tasks if task["done"] == done]
+    
+    # Filter by search term in title
+    if search:
+        search_lower = search.lower()
+        filtered_tasks = [task for task in filtered_tasks if search_lower in task["title"].lower()]
+    
+    return filtered_tasks
 
 @app.get("/tasks/{task_id}")
 def get_task(task_id: int):
@@ -107,6 +118,25 @@ def delete_task(task_id: int):
         raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
     
     tasks = [task for task in tasks if task["id"] != task_id]
+
+@app.get("/stats")
+def get_stats():
+    """Get task statistics"""
+    total = len(tasks)
+    done = len([task for task in tasks if task["done"]])
+    open_tasks = total - done
+    
+    return {
+        "total": total,
+        "done": done,
+        "open": open_tasks
+    }
+
+@app.post("/reset")
+def reset_tasks():
+    """Reset tasks to the original 3 seed tasks"""
+    init_seed_tasks()
+    return {"message": "Tasks reset to seed data", "tasks": tasks}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
