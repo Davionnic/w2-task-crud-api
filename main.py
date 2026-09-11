@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 import uvicorn
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel
 
 app = FastAPI(
     title="Task API",
@@ -24,6 +25,14 @@ def init_seed_tasks():
 
 # Initialize seed data
 init_seed_tasks()
+
+# Pydantic models
+class TaskCreate(BaseModel):
+    title: str
+
+class TaskUpdate(BaseModel):
+    title: Optional[str] = None
+    done: Optional[bool] = None
 
 @app.get("/")
 def root():
@@ -51,6 +60,24 @@ def get_task(task_id: int):
     if not task:
         raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
     return task
+
+@app.post("/tasks", status_code=201)
+def create_task(task_data: TaskCreate):
+    """Create a new task"""
+    global next_id
+    
+    if not task_data.title or not task_data.title.strip():
+        raise HTTPException(status_code=400, detail="Title is required and cannot be empty")
+    
+    new_task = {
+        "id": next_id,
+        "title": task_data.title.strip(),
+        "done": False
+    }
+    tasks.append(new_task)
+    next_id += 1
+    
+    return new_task
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
