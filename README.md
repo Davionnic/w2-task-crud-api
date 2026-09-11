@@ -81,4 +81,17 @@ This API stores all task data in memory only. When the server restarts, all task
 
 ## AI vs Me
 
-*This section will be populated after completing the AI comparison in Stage 7.*
+I wrote a prompt from memory asking an AI to build the same API (see `ai_prompt.md`). Here are the key differences between my hand-built version and the AI-generated version (in `ai-version/`):
+
+### 3 Concrete Differences:
+
+1. **Data Structure**: My version uses plain Python dictionaries for tasks (`{"id": 1, "title": "...", "done": False}`), while the AI version uses Pydantic models throughout with a `Task` class and strict typing.
+
+2. **Error Handling**: My version has custom validation logic (checking for empty titles with `strip()`), while the AI version relies on Pydantic's built-in validation with `Field` constraints and min_length validators.
+
+3. **Code Organization**: My version uses simple functions and global variables (`tasks`, `next_id`), while the AI version uses more structured approach with `TASK_DB` list, `TASK_COUNTER`, separate initialization function, and async/await patterns throughout.
+
+### One Rematch Note:
+After improving the prompt to be more specific about using simple dictionaries and avoiding over-engineering, the AI generated cleaner code similar to my approach, but still preferred Pydantic models over plain dicts.
+
+**Important**: The AI-generated code in `ai-version/` is NOT my submission - it's just for comparison. My hand-built `main.py` is the actual submission.
