@@ -40,7 +40,7 @@ Here's a sample curl session showing basic API operations:
 ```bash
 $ curl -i http://localhost:8000/health
 HTTP/1.1 200 OK
-date: Fri, 11 Sep 2026 13:51:00 GMT
+date: Fri, 11 Sep 2026 13:54:41 GMT
 server: uvicorn
 content-length: 15
 content-type: application/json
