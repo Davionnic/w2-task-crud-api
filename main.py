@@ -79,5 +79,34 @@ def create_task(task_data: TaskCreate):
     
     return new_task
 
+@app.put("/tasks/{task_id}")
+def update_task(task_id: int, task_update: TaskUpdate):
+    """Update an existing task"""
+    task = next((task for task in tasks if task["id"] == task_id), None)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    
+    # Validate title if provided
+    if task_update.title is not None:
+        if not task_update.title.strip():
+            raise HTTPException(status_code=400, detail="Title cannot be empty")
+        task["title"] = task_update.title.strip()
+    
+    # Update done status if provided
+    if task_update.done is not None:
+        task["done"] = task_update.done
+    
+    return task
+
+@app.delete("/tasks/{task_id}", status_code=204)
+def delete_task(task_id: int):
+    """Delete a task"""
+    global tasks
+    task = next((task for task in tasks if task["id"] == task_id), None)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    
+    tasks = [task for task in tasks if task["id"] != task_id]
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
