@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException
 import uvicorn
-from typing import List, Dict, Any, Optional
+import sqlite3
+import os
+from typing import Optional
 from pydantic import BaseModel
 
 app = FastAPI(
@@ -9,22 +11,50 @@ app = FastAPI(
     version="1.0"
 )
 
-# In-memory storage for tasks
-tasks: List[Dict[str, Any]] = []
-next_id = 1
+# Database configuration
+DATABASE_PATH = "tasks.db"
 
-def init_seed_tasks():
-    """Initialize with 3 seed tasks"""
-    global next_id, tasks
-    tasks = [
-        {"id": 1, "title": "Learn FastAPI", "done": False},
-        {"id": 2, "title": "Build CRUD API", "done": False},
-        {"id": 3, "title": "Write documentation", "done": True}
-    ]
-    next_id = 4
+def init_database():
+    """Create SQLite database and tasks table if they don't exist, seed with 3 tasks if table is empty"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # Create tasks table if it doesn't exist
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY,
+            title TEXT NOT NULL,
+            done BOOLEAN NOT NULL DEFAULT 0
+        )
+    """)
+    
+    # Check if table is empty and seed with 3 tasks if so
+    cursor.execute("SELECT COUNT(*) FROM tasks")
+    count = cursor.fetchone()[0]
+    
+    if count == 0:
+        seed_tasks = [
+            ("Learn FastAPI", 0),
+            ("Build CRUD API", 0),
+            ("Write documentation", 1)
+        ]
+        cursor.executemany("INSERT INTO tasks (title, done) VALUES (?, ?)", seed_tasks)
+        conn.commit()
+    
+    conn.close()
 
-# Initialize seed data
-init_seed_tasks()
+# In-memory storage for tasks (still used in this stage)
+tasks = [
+    {"id": 1, "title": "Learn FastAPI", "done": False},
+    {"id": 2, "title": "Build CRUD API", "done": False},
+    {"id": 3, "title": "Write documentation", "done": True}
+]
+next_id = 4
+
+# Initialize database on startup
+@app.on_event("startup")
+def startup_event():
+    init_database()
 
 # Pydantic models
 class TaskCreate(BaseModel):
