@@ -10,10 +10,15 @@ app = FastAPI(
     version="1.0"
 )
 
-# Initialize database on startup
-@app.on_event("startup")
-def startup_event():
-    init_database()
+# Track if database has been initialized
+_db_initialized = False
+
+def ensure_db_initialized():
+    """Ensure database is initialized, call on first API request"""
+    global _db_initialized
+    if not _db_initialized:
+        init_database()
+        _db_initialized = True
 
 # Pydantic models
 class TaskCreate(BaseModel):
@@ -35,11 +40,16 @@ def root():
 @app.get("/health")
 def health():
     """Health check endpoint"""
-    return {"status": "ok"}
+    try:
+        ensure_db_initialized()
+        return {"status": "ok", "database": "connected"}
+    except Exception as e:
+        return {"status": "error", "database": f"failed: {str(e)}"}
 
 @app.get("/tasks")
 def get_tasks(done: Optional[bool] = None, search: Optional[str] = None):
     """Get all tasks with optional filtering by done status and title search"""
+    ensure_db_initialized()
     return TaskRepository.get_all_tasks(done=done, search=search)
 
 @app.get("/tasks/{task_id}")

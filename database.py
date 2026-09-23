@@ -15,7 +15,7 @@ def get_db_connection():
     """Get a database connection with automatic cleanup"""
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg2.connect(DATABASE_URL, connect_timeout=10)
         yield conn
     finally:
         if conn:
@@ -23,35 +23,52 @@ def get_db_connection():
 
 def init_database():
     """Initialize database by creating tables and seeding data if needed"""
-    with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            # Create tasks table if it doesn't exist
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS tasks (
-                    id SERIAL PRIMARY KEY,
-                    title VARCHAR(255) NOT NULL,
-                    done BOOLEAN DEFAULT FALSE
-                );
-            """)
-            
-            # Check if table is empty and seed with initial data
-            cursor.execute("SELECT COUNT(*) FROM tasks")
-            count = cursor.fetchone()[0]
-            
-            if count == 0:
-                # Seed with 3 initial tasks
-                seed_tasks = [
-                    ("Learn FastAPI", False),
-                    ("Build CRUD API", False), 
-                    ("Write documentation", True)
-                ]
+    import time
+    max_retries = 10
+    retry_delay = 2
+    
+    for attempt in range(max_retries):
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    # Create tasks table if it doesn't exist
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS tasks (
+                            id SERIAL PRIMARY KEY,
+                            title VARCHAR(255) NOT NULL,
+                            done BOOLEAN DEFAULT FALSE
+                        );
+                    """)
+                    
+                    # Check if table is empty and seed with initial data
+                    cursor.execute("SELECT COUNT(*) FROM tasks")
+                    count = cursor.fetchone()[0]
+                    
+                    if count == 0:
+                        # Seed with 3 initial tasks
+                        seed_tasks = [
+                            ("Learn FastAPI", False),
+                            ("Build CRUD API", False), 
+                            ("Write documentation", True)
+                        ]
+                        
+                        cursor.executemany(
+                            "INSERT INTO tasks (title, done) VALUES (%s, %s)",
+                            seed_tasks
+                        )
                 
-                cursor.executemany(
-                    "INSERT INTO tasks (title, done) VALUES (%s, %s)",
-                    seed_tasks
-                )
-        
-        conn.commit()
+                conn.commit()
+                print("Database initialized successfully")
+                return  # Success, exit retry loop
+                
+        except Exception as e:
+            print(f"Database connection attempt {attempt + 1}/{max_retries} failed: {e}")
+            if attempt < max_retries - 1:
+                print(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                print("Max retries reached. Database initialization failed.")
+                raise
 
 class TaskRepository:
     """Repository class for task operations"""
