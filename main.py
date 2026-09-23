@@ -79,28 +79,44 @@ def health():
     return {"status": "ok"}
 
 @app.get("/tasks")
-def get_tasks(done: Optional[bool] = None, search: Optional[str] = None):
-    """Get all tasks with optional filtering by done status and title search"""
-    filtered_tasks = tasks
+def get_tasks():
+    """Get all tasks from database using SELECT *"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
     
-    # Filter by done status
-    if done is not None:
-        filtered_tasks = [task for task in filtered_tasks if task["done"] == done]
+    cursor.execute("SELECT * FROM tasks")
+    rows = cursor.fetchall()
     
-    # Filter by search term in title
-    if search:
-        search_lower = search.lower()
-        filtered_tasks = [task for task in filtered_tasks if search_lower in task["title"].lower()]
+    tasks = []
+    for row in rows:
+        tasks.append({
+            "id": row[0],
+            "title": row[1],
+            "done": bool(row[2])
+        })
     
-    return filtered_tasks
+    conn.close()
+    return tasks
 
 @app.get("/tasks/{task_id}")
 def get_task(task_id: int):
-    """Get a single task by ID"""
-    task = next((task for task in tasks if task["id"] == task_id), None)
-    if not task:
-        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
-    return task
+    """Get a single task by ID using parameterized query"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+    row = cursor.fetchone()
+    
+    conn.close()
+    
+    if not row:
+        raise HTTPException(status_code=404, detail={"error": "Task not found"})
+    
+    return {
+        "id": row[0],
+        "title": row[1],
+        "done": bool(row[2])
+    }
 
 @app.post("/tasks", status_code=201)
 def create_task(task_data: TaskCreate):
