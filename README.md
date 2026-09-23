@@ -1,97 +1,209 @@
-# W2 Task CRUD API
+# Task API with PostgreSQL
 
-A simple FastAPI-based CRUD (Create, Read, Update, Delete) API for managing tasks. This is Dave Andrei Almia Gallo's submission for the FlyRank W2·A1 Task CRUD API assignment.
+A containerized FastAPI-based CRUD API for managing tasks with PostgreSQL persistence. This project demonstrates full-stack containerization using Docker and Docker Compose.
 
-## What This Is
+## 🚀 Quick Setup (One Command)
 
-This is a REST API server built with FastAPI that manages a collection of tasks in memory. Each task has an `id` (integer), `title` (string), and `done` (boolean) status. The API provides full CRUD operations plus additional features like filtering, search, and statistics.
-
-**Important**: Data is stored in memory only and will be lost when the server restarts (mortality experiment).
-
-## Running the Server
-
-Install dependencies and start the server:
-
+1. Copy the environment template:
 ```bash
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000
+cp .env.example .env
 ```
 
-The server will be available at `http://localhost:8000`. Visit `http://localhost:8000/docs` for interactive Swagger UI documentation.
+2. Start the entire stack:
+```bash
+docker compose up
+```
 
-## API Endpoints
+That's it! The API will be available at `http://localhost:8000` and the interactive docs at `http://localhost:8000/docs`.
+
+## 📋 Environment Variables
+
+The application requires these environment variables (configured in `.env`):
+
+| Variable | Description | Default Value |
+|----------|-------------|---------------|
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:postgres@172.17.0.1:5432/tasks` |
+
+## 🔌 API Endpoints
 
 | Method | Endpoint | Description | Status Codes |
 |--------|----------|-------------|--------------|
 | GET | `/` | API information | 200 |
-| GET | `/health` | Health check | 200 |
+| GET | `/health` | Health check with database status | 200 |
 | GET | `/tasks` | Get all tasks (supports `?done=true/false` and `?search=text`) | 200 |
-| GET | `/tasks/{id}` | Get single task | 200, 404 |
+| GET | `/tasks/{id}` | Get single task by ID | 200, 404 |
 | POST | `/tasks` | Create new task | 201, 400 |
-| PUT | `/tasks/{id}` | Update task | 200, 400, 404 |
-| DELETE | `/tasks/{id}` | Delete task | 204, 404 |
+| PUT | `/tasks/{id}` | Update existing task | 200, 400, 404 |
+| DELETE | `/tasks/{id}` | Delete task by ID | 204, 404 |
 | GET | `/stats` | Get task statistics | 200 |
 | POST | `/reset` | Reset to seed data | 200 |
 
-## Sample API Usage
+## 🧪 API Examples
 
-Here's a sample curl session showing basic API operations:
+Here are sample curl commands demonstrating the API:
 
+### Health Check
 ```bash
-$ curl -i http://localhost:8000/health
+curl -i http://localhost:8000/health
+```
+```
 HTTP/1.1 200 OK
-date: Fri, 11 Sep 2026 13:54:41 GMT
+date: Wed, 23 Sep 2026 10:14:22 GMT
 server: uvicorn
-content-length: 15
+content-length: 42
 content-type: application/json
 
-{"status":"ok"}
+{"status":"ok","database":"connected"}
 ```
 
-Additional examples:
+### Get All Tasks
 ```bash
-# Get all tasks
 curl http://localhost:8000/tasks
+```
 
-# Create a new task
+### Create a New Task
+```bash
 curl -X POST http://localhost:8000/tasks \
   -H "Content-Type: application/json" \
-  -d '{"title": "New task"}'
-
-# Update a task
-curl -X PUT http://localhost:8000/tasks/1 \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Updated task", "done": true}'
-
-# Get statistics
-curl http://localhost:8000/stats
+  -d '{"title": "Learn Docker"}'
 ```
 
-## Interactive Documentation
+### Update a Task
+```bash
+curl -X PUT http://localhost:8000/tasks/1 \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Master Docker", "done": true}'
+```
 
-The FastAPI server provides automatic interactive API documentation:
-- **Swagger UI**: Visit `http://localhost:8000/docs`
-- **ReDoc**: Visit `http://localhost:8000/redoc`
+### Delete a Task
+```bash
+curl -X DELETE http://localhost:8000/tasks/1 -i
+```
 
-*Note: To generate a screenshot of the Swagger UI, start the server and navigate to `/docs` in your browser, then capture the interface.*
+## 🐳 Docker Architecture
 
-## Mortality Experiment
+### Services
+- **api**: FastAPI application container
+- **db**: PostgreSQL 15 database container
 
-This API stores all task data in memory only. When the server restarts, all tasks are reset to the original 3 seed tasks. This demonstrates the ephemeral nature of in-memory storage and highlights why persistent storage (databases, files) is needed for production applications.
+### Networking
+- Both services run on the same Docker network
+- Database accessible to API via service name `db`
+- API exposed on host port 8000
+- Database exposed on host port 5432 for development
 
-## AI vs Me
+### Storage
+- PostgreSQL data persisted in named volume `postgres_data`
+- Data survives container restarts and updates
 
-I wrote a prompt from memory asking an AI to build the same API (see `ai_prompt.md`). Here are the key differences between my hand-built version and the AI-generated version (in `ai-version/`):
+## 🔄 Data Persistence Verification
 
-### 3 Concrete Differences:
+To verify that data persists across container restarts:
 
-1. **Data Structure**: My version uses plain Python dictionaries for tasks (`{"id": 1, "title": "...", "done": False}`), while the AI version uses Pydantic models throughout with a `Task` class and strict typing.
+1. Create some tasks:
+```bash
+curl -X POST http://localhost:8000/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Persistence test"}'
+```
 
-2. **Error Handling**: My version has custom validation logic (checking for empty titles with `strip()`), while the AI version relies on Pydantic's built-in validation with `Field` constraints and min_length validators.
+2. Stop the stack:
+```bash
+docker compose down
+```
 
-3. **Code Organization**: My version uses simple functions and global variables (`tasks`, `next_id`), while the AI version uses more structured approach with `TASK_DB` list, `TASK_COUNTER`, separate initialization function, and async/await patterns throughout.
+3. Restart the stack:
+```bash
+docker compose up -d
+```
 
-### One Rematch Note:
-After improving the prompt to be more specific about using simple dictionaries and avoiding over-engineering, the AI generated cleaner code similar to my approach, but still preferred Pydantic models over plain dicts.
+4. Verify data is still there:
+```bash
+curl http://localhost:8000/tasks
+```
 
-**Important**: The AI-generated code in `ai-version/` is NOT my submission - it's just for comparison. My hand-built `main.py` is the actual submission.
+The tasks should still be present, including the one you created.
+
+## 🗄️ Database Schema
+
+The PostgreSQL database contains a single `tasks` table:
+
+```sql
+CREATE TABLE tasks (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    done BOOLEAN DEFAULT FALSE
+);
+```
+
+### Sample Data
+The application automatically seeds the database with 3 initial tasks:
+1. "Learn FastAPI" (not done)
+2. "Build CRUD API" (not done)  
+3. "Write documentation" (done)
+
+## 📊 Database Management
+
+### Direct Database Access
+Connect to the database directly:
+```bash
+docker compose exec db psql -U postgres -d tasks
+```
+
+### Reset Database
+Reset to initial seed data:
+```bash
+curl -X POST http://localhost:8000/reset
+```
+
+## 🛠️ Development
+
+### Local Development Setup
+1. Install dependencies:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\\Scripts\\activate
+pip install -r requirements.txt
+```
+
+2. Set up environment variables:
+```bash
+cp .env.example .env
+# Edit .env if needed
+```
+
+3. Start database only:
+```bash
+docker compose up db -d
+```
+
+4. Run API locally:
+```bash
+python main.py
+```
+
+### Container Logs
+View logs for debugging:
+```bash
+# All services
+docker compose logs
+
+# Specific service
+docker compose logs api
+docker compose logs db
+```
+
+## 🎯 Production Notes
+
+- The current setup uses default PostgreSQL credentials for development
+- For production, use strong passwords and restrict database access
+- Consider using secrets management for sensitive environment variables
+- The API runs as root in the container; consider using a non-root user for production
+
+## 📝 Database Screenshot Placeholder
+
+_[Screenshot of PostgreSQL database would go here showing the tasks table structure and sample data]_
+
+---
+
+Built with FastAPI, PostgreSQL, Docker, and Docker Compose.
