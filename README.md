@@ -1,12 +1,12 @@
 # W2 Task CRUD API
 
-A simple FastAPI-based CRUD (Create, Read, Update, Delete) API for managing tasks. This is Dave Andrei Almia Gallo's submission for the FlyRank W2·A1 Task CRUD API assignment.
+A simple FastAPI-based CRUD (Create, Read, Update, Delete) API for managing tasks with SQLite persistence. This is Dave Andrei Almia Gallo's submission for the FlyRank BE-02/A2 assignment.
 
 ## What This Is
 
-This is a REST API server built with FastAPI that manages a collection of tasks in memory. Each task has an `id` (integer), `title` (string), and `done` (boolean) status. The API provides full CRUD operations plus additional features like filtering, search, and statistics.
+This is a REST API server built with FastAPI that manages a collection of tasks using SQLite database persistence. Each task has an `id` (INTEGER PRIMARY KEY), `title` (TEXT), and `done` (BOOLEAN 0/1) status. The API provides full CRUD operations and all data persists across server restarts.
 
-**Important**: Data is stored in memory only and will be lost when the server restarts (mortality experiment).
+**Database**: Tasks are stored in SQLite (`tasks.db`) using parameterized SQL queries for all operations.
 
 ## Running the Server
 
@@ -14,10 +14,81 @@ Install dependencies and start the server:
 
 ```bash
 pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000
+python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 The server will be available at `http://localhost:8000`. Visit `http://localhost:8000/docs` for interactive Swagger UI documentation.
+
+## Database Information
+
+### Why SQLite?
+SQLite is perfect for this stage because:
+- **Zero configuration**: No separate database server required
+- **Self-contained**: Single file database (`tasks.db`) in project root
+- **ACID compliant**: Full transactional support and data integrity
+- **Excellent performance**: Fast read/write operations for development
+- **Easy to inspect**: Can use DB Browser for SQLite or command-line tools
+
+### Database Location
+- **File**: `tasks.db` (created automatically in project root)
+- **Schema**: Auto-created on first startup if missing
+- **Seed data**: 3 example tasks added automatically if table is empty
+
+### How to Run
+1. Clone this repository
+2. Install dependencies: `pip install -r requirements.txt`
+3. Start server: `python3 -m uvicorn main:app --host 0.0.0.0 --port 8000`
+4. Database and seed data created automatically on first run
+
+## SQLite Exploration
+
+The following SQL queries demonstrate database operations:
+
+### Example Query: Show All Tasks
+```sql
+SELECT * FROM tasks;
+```
+Output:
+```
+1|Learn FastAPI|0
+2|Build CRUD API|0  
+3|Write documentation|1
+4|Another manual task|0
+```
+
+### Other Useful Queries
+```sql
+-- Show completed tasks only
+SELECT * FROM tasks WHERE done=1;
+
+-- Count total tasks
+SELECT COUNT(*) FROM tasks;
+
+-- Count completed tasks  
+SELECT COUNT(*) FROM tasks WHERE done=1;
+
+-- Mark all tasks as completed
+UPDATE tasks SET done=1;
+
+-- Remove all completed tasks
+DELETE FROM tasks WHERE done=1;
+```
+
+### Manual Database Changes
+You can modify the database directly using DB Browser for SQLite or command line:
+```bash
+sqlite3 tasks.db "INSERT INTO tasks (title, done) VALUES ('Manual task', 0);"
+```
+**Important**: Manual database changes appear immediately via the API without restarting the server.
+
+### DB Browser Screenshot
+*[Screenshot of DB Browser for SQLite showing the tasks table will be added here]*
+
+To take this screenshot:
+1. Install DB Browser for SQLite  
+2. Open `tasks.db`
+3. Browse Data → tasks table
+4. Capture screenshot showing table structure and data
 
 ## API Endpoints
 
@@ -67,31 +138,17 @@ curl -X PUT http://localhost:8000/tasks/1 \
 curl http://localhost:8000/stats
 ```
 
+## Clean Clone Setup
+
+Fresh repository clone automatically:
+1. Creates `tasks.db` in project root on first startup
+2. Initializes table schema (`tasks` with `id`, `title`, `done` columns)
+3. Seeds exactly 3 example tasks
+4. Preserves data across subsequent restarts
+5. Multiple initialization calls still maintain exactly 3 seed tasks
+
 ## Interactive Documentation
 
 The FastAPI server provides automatic interactive API documentation:
 - **Swagger UI**: Visit `http://localhost:8000/docs`
 - **ReDoc**: Visit `http://localhost:8000/redoc`
-
-*Note: To generate a screenshot of the Swagger UI, start the server and navigate to `/docs` in your browser, then capture the interface.*
-
-## Mortality Experiment
-
-This API stores all task data in memory only. When the server restarts, all tasks are reset to the original 3 seed tasks. This demonstrates the ephemeral nature of in-memory storage and highlights why persistent storage (databases, files) is needed for production applications.
-
-## AI vs Me
-
-I wrote a prompt from memory asking an AI to build the same API (see `ai_prompt.md`). Here are the key differences between my hand-built version and the AI-generated version (in `ai-version/`):
-
-### 3 Concrete Differences:
-
-1. **Data Structure**: My version uses plain Python dictionaries for tasks (`{"id": 1, "title": "...", "done": False}`), while the AI version uses Pydantic models throughout with a `Task` class and strict typing.
-
-2. **Error Handling**: My version has custom validation logic (checking for empty titles with `strip()`), while the AI version relies on Pydantic's built-in validation with `Field` constraints and min_length validators.
-
-3. **Code Organization**: My version uses simple functions and global variables (`tasks`, `next_id`), while the AI version uses more structured approach with `TASK_DB` list, `TASK_COUNTER`, separate initialization function, and async/await patterns throughout.
-
-### One Rematch Note:
-After improving the prompt to be more specific about using simple dictionaries and avoiding over-engineering, the AI generated cleaner code similar to my approach, but still preferred Pydantic models over plain dicts.
-
-**Important**: The AI-generated code in `ai-version/` is NOT my submission - it's just for comparison. My hand-built `main.py` is the actual submission.
