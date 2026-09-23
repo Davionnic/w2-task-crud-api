@@ -79,12 +79,28 @@ def health():
     return {"status": "ok"}
 
 @app.get("/tasks")
-def get_tasks():
-    """Get all tasks from database using SELECT *"""
+def get_tasks(done: Optional[bool] = None, search: Optional[str] = None):
+    """Get all tasks from database using SELECT *, with optional filtering"""
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
-    cursor.execute("SELECT * FROM tasks")
+    # Build query with optional WHERE clauses
+    query = "SELECT * FROM tasks"
+    params = []
+    where_clauses = []
+    
+    if done is not None:
+        where_clauses.append("done = ?")
+        params.append(int(done))
+    
+    if search:
+        where_clauses.append("title LIKE ?")
+        params.append(f"%{search}%")
+    
+    if where_clauses:
+        query += " WHERE " + " AND ".join(where_clauses)
+    
+    cursor.execute(query, params)
     rows = cursor.fetchall()
     
     tasks = []
@@ -208,6 +224,60 @@ def delete_task(task_id: int):
     conn.close()
     
     # Return empty body with 204 status
+
+@app.get("/stats")
+def get_stats():
+    """Get task statistics from database"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT COUNT(*) FROM tasks")
+    total = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM tasks WHERE done=1")
+    done = cursor.fetchone()[0]
+    
+    conn.close()
+    
+    return {
+        "total": total,
+        "done": done,
+        "open": total - done
+    }
+
+@app.post("/reset")
+def reset_tasks():
+    """Reset tasks to the original 3 seed tasks"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # Clear all tasks
+    cursor.execute("DELETE FROM tasks")
+    
+    # Re-add seed tasks
+    seed_tasks = [
+        ("Learn FastAPI", 0),
+        ("Build CRUD API", 0),
+        ("Write documentation", 1)
+    ]
+    cursor.executemany("INSERT INTO tasks (title, done) VALUES (?, ?)", seed_tasks)
+    
+    conn.commit()
+    
+    # Get the reset tasks
+    cursor.execute("SELECT * FROM tasks")
+    rows = cursor.fetchall()
+    tasks = []
+    for row in rows:
+        tasks.append({
+            "id": row[0],
+            "title": row[1],
+            "done": bool(row[2])
+        })
+    
+    conn.close()
+    
+    return {"message": "Tasks reset to seed data", "tasks": tasks}
 
 @app.get("/stats")
 def get_stats():
