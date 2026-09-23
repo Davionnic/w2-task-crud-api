@@ -1,12 +1,12 @@
 # W2 Task CRUD API
 
-A simple FastAPI-based CRUD (Create, Read, Update, Delete) API for managing tasks. This is Dave Andrei Almia Gallo's submission for the FlyRank W2·A1 Task CRUD API assignment.
+A simple FastAPI-based CRUD (Create, Read, Update, Delete) API for managing tasks with SQLite persistence. This is Dave Andrei Almia Gallo's submission for the FlyRank BE-02/A2 assignment.
 
 ## What This Is
 
-This is a REST API server built with FastAPI that manages a collection of tasks in memory. Each task has an `id` (integer), `title` (string), and `done` (boolean) status. The API provides full CRUD operations plus additional features like filtering, search, and statistics.
+This is a REST API server built with FastAPI that manages a collection of tasks with SQLite database persistence. Each task has an `id` (integer), `title` (string), and `done` (boolean) status. The API provides full CRUD operations plus additional features like filtering, search, and statistics.
 
-**Important**: Data is stored in memory only and will be lost when the server restarts (mortality experiment).
+**Database**: Tasks are now persisted in SQLite (`tasks.db`) and survive server restarts.
 
 ## Running the Server
 
@@ -14,10 +14,28 @@ Install dependencies and start the server:
 
 ```bash
 pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000
+python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 The server will be available at `http://localhost:8000`. Visit `http://localhost:8000/docs` for interactive Swagger UI documentation.
+
+## Database
+
+- **File Location**: `tasks.db` (SQLite database created automatically in project root)
+- **Initialization**: Database schema and seed data are created automatically on first startup
+- **Persistence**: All task data survives server restarts
+
+### Verifying Persistence
+
+To verify that data persists across server restarts:
+
+1. Start the server: `python3 -m uvicorn main:app --host 0.0.0.0 --port 8000`
+2. Create a test task: `curl -X POST http://localhost:8000/tasks -H "Content-Type: application/json" -d '{"title": "Test persistence"}'`
+3. Note the task ID in the response
+4. Stop the server (Ctrl+C)
+5. Restart the server: `python3 -m uvicorn main:app --host 0.0.0.0 --port 8000`
+6. Retrieve your task: `curl http://localhost:8000/tasks/{id}` (replace {id} with the task ID from step 3)
+7. Your task should still be there!
 
 ## API Endpoints
 
@@ -75,9 +93,14 @@ The FastAPI server provides automatic interactive API documentation:
 
 *Note: To generate a screenshot of the Swagger UI, start the server and navigate to `/docs` in your browser, then capture the interface.*
 
-## Mortality Experiment
+## Database Evolution
 
-This API stores all task data in memory only. When the server restarts, all tasks are reset to the original 3 seed tasks. This demonstrates the ephemeral nature of in-memory storage and highlights why persistent storage (databases, files) is needed for production applications.
+**Previous Version (BE-01/A1)**: Stored tasks in memory only - data was lost on server restart.
+
+**Current Version (BE-02/A2)**: Uses SQLite for persistence - tasks survive server restarts. The database file (`tasks.db`) is created automatically and contains:
+- Initial seed data (3 tasks) on first startup  
+- All subsequently created/modified tasks
+- Full schema auto-migration on startup
 
 ## AI vs Me
 
