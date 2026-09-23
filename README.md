@@ -1,154 +1,236 @@
-# W2 Task CRUD API
+# Task API - Containerized with PostgreSQL
 
-A simple FastAPI-based CRUD (Create, Read, Update, Delete) API for managing tasks with SQLite persistence. This is Dave Andrei Almia Gallo's submission for the FlyRank BE-02/A2 assignment.
+A FastAPI-based CRUD API for managing tasks with **PostgreSQL in Docker** as the primary deployment method and SQLite fallback for local development. This implements the FlyRank BE-04 containerization requirements.
 
-## What This Is
+## 🚀 Quick Setup (Docker - Recommended)
 
-This is a REST API server built with FastAPI that manages a collection of tasks using SQLite database persistence. Each task has an `id` (INTEGER PRIMARY KEY), `title` (TEXT), and `done` (BOOLEAN 0/1) status. The API provides full CRUD operations and all data persists across server restarts.
+**One-command setup:**
 
-**Database**: Tasks are stored in SQLite (`tasks.db`) using parameterized SQL queries for all operations.
-
-## Running the Server
-
-Install dependencies and start the server:
-
+1. Copy the environment template:
 ```bash
-pip install -r requirements.txt
-python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
+cp .env.example .env
 ```
 
-The server will be available at `http://localhost:8000`. Visit `http://localhost:8000/docs` for interactive Swagger UI documentation.
-
-## Database Information
-
-### Why SQLite?
-SQLite is perfect for this stage because:
-- **Zero configuration**: No separate database server required
-- **Self-contained**: Single file database (`tasks.db`) in project root
-- **ACID compliant**: Full transactional support and data integrity
-- **Excellent performance**: Fast read/write operations for development
-- **Easy to inspect**: Can use DB Browser for SQLite or command-line tools
-
-### Database Location
-- **File**: `tasks.db` (created automatically in project root)
-- **Schema**: Auto-created on first startup if missing
-- **Seed data**: 3 example tasks added automatically if table is empty
-
-### How to Run
-1. Clone this repository
-2. Install dependencies: `pip install -r requirements.txt`
-3. Start server: `python3 -m uvicorn main:app --host 0.0.0.0 --port 8000`
-4. Database and seed data created automatically on first run
-
-## SQLite Exploration
-
-The following SQL queries demonstrate database operations:
-
-### Example Query: Show All Tasks
-```sql
-SELECT * FROM tasks;
-```
-Output:
-```
-1|Learn FastAPI|0
-2|Build CRUD API|0  
-3|Write documentation|1
-4|Another manual task|0
-```
-
-### Other Useful Queries
-```sql
--- Show completed tasks only
-SELECT * FROM tasks WHERE done=1;
-
--- Count total tasks
-SELECT COUNT(*) FROM tasks;
-
--- Count completed tasks  
-SELECT COUNT(*) FROM tasks WHERE done=1;
-
--- Mark all tasks as completed
-UPDATE tasks SET done=1;
-
--- Remove all completed tasks
-DELETE FROM tasks WHERE done=1;
-```
-
-### Manual Database Changes
-You can modify the database directly using DB Browser for SQLite or command line:
+2. Start the entire stack:
 ```bash
-sqlite3 tasks.db "INSERT INTO tasks (title, done) VALUES ('Manual task', 0);"
+docker compose up
 ```
-**Important**: Manual database changes appear immediately via the API without restarting the server.
 
-### DB Browser Screenshot
-*[Screenshot of DB Browser for SQLite showing the tasks table will be added here]*
+That's it! The API will be available at `http://localhost:8000` and interactive docs at `http://localhost:8000/docs`.
 
-To take this screenshot:
-1. Install DB Browser for SQLite  
-2. Open `tasks.db`
-3. Browse Data → tasks table
-4. Capture screenshot showing table structure and data
+## 📦 Deployment Options
 
-## API Endpoints
+### Option 1: Docker Compose (Primary/Production)
+- **Database**: PostgreSQL 15 in container
+- **Persistence**: Docker named volume
+- **Setup**: `docker compose up`
+- **Use case**: Production, team development
+
+### Option 2: Local Development (Fallback)
+- **Database**: SQLite (`tasks.db`)  
+- **Persistence**: Local file
+- **Setup**: `pip install -r requirements.txt && python main.py`
+- **Use case**: Local development without Docker
+
+The application **automatically detects** which mode to use based on the `DATABASE_URL` environment variable.
+
+## 📋 Environment Variables
+
+| Variable | Description | Docker Default | Local Fallback |
+|----------|-------------|----------------|-----------------|
+| `DATABASE_URL` | Database connection string | `postgresql://postgres:postgres@172.17.0.1:5432/tasks` | None (uses SQLite) |
+
+## 🔌 API Endpoints
 
 | Method | Endpoint | Description | Status Codes |
 |--------|----------|-------------|--------------|
 | GET | `/` | API information | 200 |
-| GET | `/health` | Health check | 200 |
+| GET | `/health` | Health check with database type | 200 |
 | GET | `/tasks` | Get all tasks (supports `?done=true/false` and `?search=text`) | 200 |
-| GET | `/tasks/{id}` | Get single task | 200, 404 |
+| GET | `/tasks/{id}` | Get single task by ID | 200, 404 |
 | POST | `/tasks` | Create new task | 201, 400 |
-| PUT | `/tasks/{id}` | Update task | 200, 400, 404 |
-| DELETE | `/tasks/{id}` | Delete task | 204, 404 |
+| PUT | `/tasks/{id}` | Update existing task | 200, 400, 404 |
+| DELETE | `/tasks/{id}` | Delete task by ID | 204, 404 |
 | GET | `/stats` | Get task statistics | 200 |
 | POST | `/reset` | Reset to seed data | 200 |
 
-## Sample API Usage
+## 🧪 API Examples
 
-Here's a sample curl session showing basic API operations:
-
+### Health Check (shows database type)
 ```bash
-$ curl -i http://localhost:8000/health
+curl -i http://localhost:8000/health
+```
+```
 HTTP/1.1 200 OK
-date: Fri, 11 Sep 2026 13:54:41 GMT
+date: Wed, 23 Sep 2026 10:14:22 GMT
 server: uvicorn
-content-length: 15
+content-length: 55
 content-type: application/json
 
-{"status":"ok"}
+{"status":"ok","database":"connected (PostgreSQL)"}
 ```
 
-Additional examples:
+### Get All Tasks
 ```bash
-# Get all tasks
 curl http://localhost:8000/tasks
+```
 
-# Create a new task
+### Create a New Task
+```bash
 curl -X POST http://localhost:8000/tasks \
   -H "Content-Type: application/json" \
-  -d '{"title": "New task"}'
-
-# Update a task
-curl -X PUT http://localhost:8000/tasks/1 \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Updated task", "done": true}'
-
-# Get statistics
-curl http://localhost:8000/stats
+  -d '{"title": "Learn Docker"}'
 ```
 
-## Clean Clone Setup
+### Update a Task
+```bash
+curl -X PUT http://localhost:8000/tasks/1 \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Master Docker", "done": true}'
+```
 
-Fresh repository clone automatically:
-1. Creates `tasks.db` in project root on first startup
-2. Initializes table schema (`tasks` with `id`, `title`, `done` columns)
-3. Seeds exactly 3 example tasks
-4. Preserves data across subsequent restarts
-5. Multiple initialization calls still maintain exactly 3 seed tasks
+### Delete a Task
+```bash
+curl -X DELETE http://localhost:8000/tasks/1 -i
+```
 
-## Interactive Documentation
+### Filter Tasks
+```bash
+# Get completed tasks
+curl "http://localhost:8000/tasks?done=true"
 
-The FastAPI server provides automatic interactive API documentation:
-- **Swagger UI**: Visit `http://localhost:8000/docs`
-- **ReDoc**: Visit `http://localhost:8000/redoc`
+# Search tasks
+curl "http://localhost:8000/tasks?search=Docker"
+```
+
+## 🐳 Docker Architecture
+
+### Services
+- **api**: FastAPI application container (Python 3.12-slim)
+- **db**: PostgreSQL 15 database container
+
+### Networking
+- Containers communicate via Docker network
+- API connects to database using host gateway IP (`172.17.0.1:5432`)
+- API exposed on host port 8000
+- Database exposed on host port 5432 for development access
+
+### Storage
+- PostgreSQL data persisted in named volume `postgres_data`
+- Data survives container restarts and updates
+
+## 🔄 Data Persistence Verification
+
+To verify data persists across container restarts:
+
+1. Create some tasks:
+```bash
+curl -X POST http://localhost:8000/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Persistence test"}'
+```
+
+2. Stop the stack:
+```bash
+docker compose down
+```
+
+3. Restart the stack:
+```bash
+docker compose up -d
+```
+
+4. Verify data is still there:
+```bash
+curl http://localhost:8000/tasks
+```
+
+The tasks should still be present, confirming persistence works.
+
+## 🗄️ Database Schema
+
+Both PostgreSQL and SQLite use the same schema:
+
+```sql
+CREATE TABLE tasks (
+    id SERIAL PRIMARY KEY,          -- INTEGER PRIMARY KEY for SQLite
+    title VARCHAR(255) NOT NULL,    -- TEXT NOT NULL for SQLite  
+    done BOOLEAN DEFAULT FALSE      -- BOOLEAN DEFAULT 0 for SQLite
+);
+```
+
+### Sample Data
+The application automatically seeds both databases with 3 initial tasks:
+1. "Learn FastAPI" (not done)
+2. "Build CRUD API" (not done)  
+3. "Write documentation" (done)
+
+## 🛠️ Local Development
+
+### With Docker (Recommended)
+```bash
+cp .env.example .env
+docker compose up
+```
+
+### Without Docker (SQLite fallback)
+```bash
+# Install dependencies
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\\Scripts\\activate
+pip install -r requirements.txt
+
+# Run directly (will use SQLite)
+python main.py
+```
+
+### Database Management
+
+#### PostgreSQL (Docker)
+```bash
+# Connect to database
+docker compose exec db psql -U postgres -d tasks
+
+# View logs
+docker compose logs db
+```
+
+#### SQLite (Local)
+```bash
+# Database file is created as tasks.db
+sqlite3 tasks.db ".schema"
+```
+
+#### Reset to seed data (both)
+```bash
+curl -X POST http://localhost:8000/reset
+```
+
+## 🎯 Production Notes
+
+- **Recommended**: Use Docker Compose deployment
+- Default PostgreSQL credentials are for development only
+- For production: use strong passwords, secrets management
+- Consider non-root container user for production
+- SQLite fallback is suitable for development/testing only
+
+## 🔍 Implementation Details
+
+### Database Detection
+The app detects PostgreSQL vs SQLite based on `DATABASE_URL`:
+- If `DATABASE_URL` starts with `postgresql://` → PostgreSQL mode
+- Otherwise → SQLite mode  
+
+### Error Handling
+- Consistent 404 responses for missing tasks
+- Validation for empty/missing titles
+- Database connection retry logic (PostgreSQL)
+- Graceful fallback between database types
+
+### API Compatibility
+Both database backends provide identical API responses and behavior.
+
+---
+
+**Built with FastAPI, PostgreSQL, SQLite, Docker, and Docker Compose**  
+*FlyRank BE-04 Implementation - Containerized Stack*
