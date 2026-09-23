@@ -138,6 +138,15 @@ curl -X PUT http://localhost:8000/tasks/1 \
 curl http://localhost:8000/stats
 ```
 
+## Clean Clone Setup
+
+Fresh repository clone automatically:
+1. Creates `tasks.db` in project root on first startup
+2. Initializes table schema (`tasks` with `id`, `title`, `done` columns)
+3. Seeds exactly 3 example tasks
+4. Preserves data across subsequent restarts
+5. Multiple initialization calls still maintain exactly 3 seed tasks
+
 ## Interactive Documentation
 
 The FastAPI server provides automatic interactive API documentation:
