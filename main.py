@@ -142,32 +142,72 @@ def create_task(task_data: TaskCreate):
 
 @app.put("/tasks/{task_id}")
 def update_task(task_id: int, task_update: TaskUpdate):
-    """Update an existing task"""
-    task = next((task for task in tasks if task["id"] == task_id), None)
-    if not task:
-        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
-    
+    """Update an existing task using SQL UPDATE"""
     # Validate title if provided
+    if task_update.title is not None and not task_update.title.strip():
+        raise HTTPException(status_code=400, detail="Title cannot be empty")
+    
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # Check if task exists first
+    cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+    existing_task = cursor.fetchone()
+    
+    if not existing_task:
+        conn.close()
+        raise HTTPException(status_code=404, detail={"error": "Task not found"})
+    
+    # Build update query based on provided fields
+    update_fields = []
+    params = []
+    
     if task_update.title is not None:
-        if not task_update.title.strip():
-            raise HTTPException(status_code=400, detail="Title cannot be empty")
-        task["title"] = task_update.title.strip()
+        update_fields.append("title = ?")
+        params.append(task_update.title.strip())
     
-    # Update done status if provided
     if task_update.done is not None:
-        task["done"] = task_update.done
+        update_fields.append("done = ?")
+        params.append(int(task_update.done))
     
-    return task
+    if update_fields:
+        params.append(task_id)
+        query = f"UPDATE tasks SET {', '.join(update_fields)} WHERE id = ?"
+        cursor.execute(query, params)
+        conn.commit()
+    
+    # Get updated task
+    cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+    updated_row = cursor.fetchone()
+    
+    conn.close()
+    
+    return {
+        "id": updated_row[0],
+        "title": updated_row[1], 
+        "done": bool(updated_row[2])
+    }
 
 @app.delete("/tasks/{task_id}", status_code=204)
 def delete_task(task_id: int):
-    """Delete a task"""
-    global tasks
-    task = next((task for task in tasks if task["id"] == task_id), None)
-    if not task:
-        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    """Delete a task using SQL DELETE"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
     
-    tasks = [task for task in tasks if task["id"] != task_id]
+    # Check if task exists first
+    cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+    existing_task = cursor.fetchone()
+    
+    if not existing_task:
+        conn.close()
+        raise HTTPException(status_code=404, detail={"error": "Task not found"})
+    
+    # Delete the task
+    cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    conn.commit()
+    conn.close()
+    
+    # Return empty body with 204 status
 
 @app.get("/stats")
 def get_stats():
