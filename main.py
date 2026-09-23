@@ -120,21 +120,25 @@ def get_task(task_id: int):
 
 @app.post("/tasks", status_code=201)
 def create_task(task_data: TaskCreate):
-    """Create a new task"""
-    global next_id
-    
+    """Create a new task using parameterized INSERT, DB assigns id, done=false"""
     if not task_data.title or not task_data.title.strip():
         raise HTTPException(status_code=400, detail="Title is required and cannot be empty")
     
-    new_task = {
-        "id": next_id,
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # Insert new task with parameterized query, let DB assign id, set done=false
+    cursor.execute("INSERT INTO tasks (title, done) VALUES (?, ?)", (task_data.title.strip(), 0))
+    task_id = cursor.lastrowid
+    
+    conn.commit()
+    conn.close()
+    
+    return {
+        "id": task_id,
         "title": task_data.title.strip(),
         "done": False
     }
-    tasks.append(new_task)
-    next_id += 1
-    
-    return new_task
 
 @app.put("/tasks/{task_id}")
 def update_task(task_id: int, task_update: TaskUpdate):
